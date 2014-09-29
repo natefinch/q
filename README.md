@@ -16,9 +16,16 @@ happens to have a single-letter name, which makes the command very easy to type.
 Tasks are items in a todo list.  They have a title, an optional description, a
 body, an ID, and a weight.  The Task with the highest weight is the one that
 should be done next.  Tasks without a weight are ordered by date of creation,
-with the oldest being the one you should do next.  The task
+with the oldest being the one you should do next.  Tasks generally have three
+states - todo, doing, done.
 
-You may have any number of task lists and may 
+You may add tags and custom metadata to tasks and task lists to make filtering
+and searching easier, as well as to support plugin use cases.
+
+### Notes
+
+Notes are just that - notes... they can have tags and metadata just like tasks,
+but don't have the concept of weight or states like todo, doing, or done.
 
 ## Plugins
 
