@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -17,8 +18,10 @@ var (
 )
 
 type Todo struct {
-	Title string `toml:"title"`
-	Id    int    `toml:"id"`
+	Title   string    `toml:"title"`
+	Desc    string    `toml:"description"`
+	Created time.Time `toml:"created"`
+	Id      int       `toml:"id"`
 }
 
 type todos struct {
@@ -48,6 +51,9 @@ func Add(t Todo) error {
 		}
 	}
 	t.Id = id + 1
+	if t.Created.IsZero() {
+		t.Created = time.Now().UTC()
+	}
 	ts.Todos = append(ts.Todos, t)
 	if err := f.Truncate(0); err != nil {
 		return fmt.Errorf("Error rewriting todo file: %s", err)
