@@ -1,54 +1,109 @@
-# Design notes
+## Design Notes:
 
-This is probably out of date, but keeping it for posterity in case there's any
-good ideas in here.
+## Plugin types:
 
-## Plugins
+### Commands and Contexts
 
-Plugins are any executable called Q-&lt;something&gt;. Plugins are installed by
-calling q install &lt;plugin-name&gt; which calls the `commands` command on the
-plugin executable, which should return metadata about what commands and events
-the plugin supports.  If this metadata doesn't conflict with any existing
-plugins, Q will merge it with the existing metadata and then call the `install`
-command for the plugin, which should do any required setup for the plugin.
+Q command lines take the form `q <command> [context] [...]`  When a plugin is
+installed, it can register commands and optionally new contexts.  Commands
+are the verbs of the command line, for example "list" or "add".  Commands often
+take a context, which specializes the command for this particular plugin.
+Examples of contexts might be bugs or todos, or even something like git.  Put
+together, a todos plugin might register "add", "remove", and "list" commands,
+each with the context "todos".  With that plugin installed, a user could type `q
+list todos` and get back a list of todo items.  If that user also had a bugs
+plugin installed, they might also be able to do `q list bugs` to get back a list
+of bugs.
 
-### Required meta-commands
+Plugins may register commands without associated contexts, but this means that
+no other plugins can reuse that command (since they would conflict), so this
+should be used sparingly.
 
-* meta - return metadata listing supported commands and events
-* install - perform any install steps
-* uninstall - perform any uninstall steps
-* help - print general help for the plugin
+If two plugins would register the same context, during the install of the second
+plugin, the install would fail, citing conflicting contexts.  In the future, it
+will be possible to rename contexts so that they do not conflict.
 
-### Metadata Format
 
-Metadata returned from the meta command must be returned as JSON.
+### Servers
 
-description - (string) single sentence describing the plugin
+Servers allow other plugins to manipulate information through their service.
+Often times this will take the form of API calls to a web service, such as
+github or a kanban board.
 
-commands - array of command objects
 
-#### Commands
+## Creating a plugin
 
-Commands are exposed on the base Q command as subcommands, so for example, if
-your plugin exposes the "get" command, users will execute that command as `q
-get`.  Commands should more or less follow English grammar.  So `q show notes`
-rather than `q notes show`.
+Q plugins are simply executables. They may be written in any language that can
+read from stdin and write to stdout.  They must respond to the following command
+line commands:
 
-Q has a few standard commands that can be appended to by plugins - these are for
-object creation.  The commands move, new, show, del, and tag are built-in and
-should be reused where appropriate.
+### manifest
 
-#### Command metadata format
+When given the manifest command, the plugin must write its TOML manifest to
+stdout.  The manifest tells Q what features the plugin exposes - commands and
+their associated contexts, and any named services.
+
+```toml
+	name = "launchpad"
+	# commands at the root are commands that do not take a context
+    [[command]]
+    	name = "dance"
+    	short = "makes a dancing banana appear"
+    	long = """
+usage:
+	dance [options]
+
+	-t=<seconds> 	display for n seconds
+"""
+    [[context]]
+        name = "bug"
+        plural = "bugs"
+    	[[context.command]]
+    		name = "list"
+    		short = "show all bugs"
+    		long = """
+usage:
+	list bugs [options]
+
+	-a=<assignee> 	show only bugs assigned to assignee
+"""
+
+    	[[context.command]]
+    		name = "add"
+    		short = "create a new bugs"
+    		long = """
+usage:
+	add bug [options]
+
+	-t=<title> 	use the given string as the title of the bug
+	-b=<body> 	use the given string as the body of the bug
+"""
+
 
 ```
-command - (string) name of the command (e.g. "new")
-subcommand - (string, optional) name of required subcommand (e.g. "todo")
-help - (string) single line description of the command
-subhelp - (string) single line description of the subcommand
-```
 
-The plugin will be expected to respond to the command help &lt;command&gt;
-&lt;subcommand&gt;, so for example, a plugin that exposes the "new todo" command
-will need to be able to respond to a `help new todo` command with appopriate
-help output.
 
+
+## Use Cases:
+
+### Work on a Bug
+
+I want to tell Q about a bug that I am going to start working on.  
+
+**Q should:**
+
+- connect to the bug tracker and assign the bug to me
+- make a branch of the code in source control with an obvious name
+- create a card on my kanban board with the appropriate type and a link to the bug
+
+**example CLI:**
+
+q take [bug url] [vcs dir]
+
+q take lp:1424892 gh:juju/juju
+
+**implications:**
+
+Need a string resolvers that can translate custom uri types to full strings, i.e. translate lp:1424892 to https://bugs.launchpad.net/juju-core/+bug/1424892 or translate gh:juju/juju to $GOPATH/src/github.com/juju/juju
+
+Need plugins to handle vcs, bug trackers, kanban.
