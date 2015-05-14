@@ -45,15 +45,12 @@ their associated contexts, and any named services.
 
 **Example Manifest**
 
-	# the name of the plugin
 	Name = "github"
+	Version = "0.9 alpha"
+
 	[[Command]]
-		# commands at the root of the manifest are commands that do not take a context
-		# the name of the command
 		Name = "dance"
-		# short is a single line help shown when help displays a list of commands
 		Short = "makes a dancing banana appear"
-		# long is what is shown when the user does q help <command>
 		Long = """
 		usage:
 			dance [options]
@@ -61,9 +58,7 @@ their associated contexts, and any named services.
 			-t=<seconds> 	display for n seconds
 		"""
 	[[Context]]
-		# the name of the context
 	    Name = "bug"
-	    # the plural version of the context name
 	    Plural = "bugs"
 	    Short = "These commands interact with bugs from github."
 	    Long = """
@@ -71,8 +66,6 @@ their associated contexts, and any named services.
 	    authentication in the plugin's configuration.
 	    """
 
-	    # contexts can register commands as well, these will be accessed by
-	    # q <command> <context>
 		[[Context.Command]]
 			Name = "list"
 			Short = "show all bugs"
@@ -93,16 +86,24 @@ their associated contexts, and any named services.
 				-t=<title> 	use the given string as the title of the bug
 				-b=<body> 	use the given string as the body of the bug
 			"""
+
 	[[Service]]
-		# services expose functionality that other plugins can use.
 		Name = "github"
+		Version = "0.9 alpha"
 
 **Manifest Definition**
 
+This is the specification for what is expected to be in a Q plugin manifest.
+These are the Go structs that would be used to generate the manifest.
+
+A note on Versions... versions are expected to match the following regular expression `[0-9].[0-9]+(.[0-9]+)?( [a-z]+)?`  i.e. major.minor[.patch] [tag]  Where tag is something like "alpha" or "rc1".  When versions are compared, they are compared by major, then minor, then patch.  An empty tag is considered higher than a non-empty tag.  Otherwise, tags are compared lexigraphically, so rc1 > beta > alpha.  Note that this means you have to be careful with tags, since beta2 > beta10.  
+
 	type Manifest struct {
 		Name string 		// plugin name
+		Version string 		// plugin version
 		Command []Command 	// commands w/o context
 		Context []Context 	// contexts 
+		Service []Service 	// services
 	}
 
 	type Command struct {
@@ -117,6 +118,11 @@ their associated contexts, and any named services.
 		Short string 		// single line help text
 		Long string 		// multi-line help text
 		Command []Command 	// commands that use this context
+	}
+
+	type Service struct {
+		Name string 	// name of the service
+		Version string 	// version of the service API
 	}
 
 ### server
