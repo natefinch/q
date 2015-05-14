@@ -1,8 +1,8 @@
-## Design Notes:
+# Design Notes
 
-## Plugin types:
+### Plugin types
 
-### Commands and Contexts
+#### Commands and Contexts
 
 Q command lines take the form `q <command> [context] [...]`  When a plugin is
 installed, it can register commands and optionally new contexts.  Commands
@@ -24,73 +24,100 @@ plugin, the install would fail, citing conflicting contexts.  In the future, it
 will be possible to rename contexts so that they do not conflict.
 
 
-### Servers
+#### Servers
 
 Servers allow other plugins to manipulate information through their service.
 Often times this will take the form of API calls to a web service, such as
 github or a kanban board.
 
 
-## Creating a plugin
+### Creating a plugin
 
 Q plugins are simply executables. They may be written in any language that can
 read from stdin and write to stdout and expose/consume JSON-RPC.  They must
 respond to the following command line commands:
 
-### manifest
+#### manifest
 
 When given the manifest command, the plugin must write its TOML manifest to
 stdout.  The manifest tells Q what features the plugin exposes - commands and
 their associated contexts, and any named services.
 
-```
-# the name of the plugin
-name = "github"
-# commands at the root are commands that do not take a context
-[[command]]
-	# the name of the command
-	name = "dance"
-	# short is a single line help shown with a list of commands
-	short = "makes a dancing banana appear"
-	# long is what is shown when the user does q help <command>
-	long = """
-	usage:
-		dance [options]
+**Example Manifest**
 
-		-t=<seconds> 	display for n seconds
-	"""
-[[context]]
-	# the name of the context
-    name = "bug"
-    # the plural version of the context name
-    plural = "bugs"
-    long = "These commands interact with bugs from github."
-
-    # contexts can register commands as well, these will be accessed by
-    # q <command> <context>
-	[[context.command]]
-		name = "list"
-		short = "show all bugs"
-		long = """
+	# the name of the plugin
+	Name = "github"
+	[[Command]]
+		# commands at the root of the manifest are commands that do not take a context
+		# the name of the command
+		Name = "dance"
+		# short is a single line help shown when help displays a list of commands
+		Short = "makes a dancing banana appear"
+		# long is what is shown when the user does q help <command>
+		Long = """
 		usage:
-			list bugs [options]
+			dance [options]
 
-			-a=<assignee> 	show only bugs assigned to assignee
+			-t=<seconds> 	display for n seconds
 		"""
+	[[Context]]
+		# the name of the context
+	    Name = "bug"
+	    # the plural version of the context name
+	    Plural = "bugs"
+	    Short = "These commands interact with bugs from github."
+	    Long = """
+	    Bug commands interact with bug from github.  You will need to set up 
+	    authentication in the plugin's configuration.
+	    """
 
-	[[context.command]]
-		name = "add"
-		short = "create a new bug"
-		long = """
-		usage:
-			add bug [options]
+	    # contexts can register commands as well, these will be accessed by
+	    # q <command> <context>
+		[[Context.Command]]
+			Name = "list"
+			Short = "show all bugs"
+			Long = """
+			usage:
+				list bugs [options]
 
-			-t=<title> 	use the given string as the title of the bug
-			-b=<body> 	use the given string as the body of the bug
-		"""
+				-a=<assignee> 	show only bugs assigned to assignee
+			"""
 
+		[[Context.Command]]
+			Name = "add"
+			Short = "create a new bug"
+			Long = """
+			usage:
+				add bug [options]
 
-```
+				-t=<title> 	use the given string as the title of the bug
+				-b=<body> 	use the given string as the body of the bug
+			"""
+	[[Service]]
+		# services expose functionality that other plugins can use.
+		Name = "github"
+
+**Manifest Definition**
+
+	type Manifest struct {
+		Name string 		// plugin name
+		Command []Command 	// commands w/o context
+		Context []Context 	// contexts 
+	}
+
+	type Command struct {
+		Name string 	// command name
+		Short string 	// single line help text
+		Long string 	// multi-line help text
+	}
+
+	type Context struct {
+		Name string 		// context name
+		Plural string 		// plural version of context name
+		Short string 		// single line help text
+		Long string 		// multi-line help text
+		Command []Command 	// commands that use this context
+	}
 
 ### server
 
@@ -99,7 +126,7 @@ listening on stdin and writing responses to stdout.  Any logging the plugin
 wishes to do should be sent through stderr.  The plugin should interpret the
 Interrupt signal as a request for it to shut down its process.
 
-### command
+### command [args...]
 
 When given the command command, any further command line args given by the user
 will be passed through to the plugin.  At this point, Q will start a JSON-RPC
@@ -112,7 +139,7 @@ the appropriate plugin servers.
 
 
 
-## Use Cases:
+## Example Use Cases:
 
 ### Work on a Bug
 
@@ -127,8 +154,6 @@ I want to tell Q about a bug that I am going to start working on.
 **example CLI:**
 
 q take [bug url] [vcs dir]
-
-q take lp:1424892 gh:juju/juju
 
 **implications:**
 
