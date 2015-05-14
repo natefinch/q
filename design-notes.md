@@ -34,8 +34,8 @@ github or a kanban board.
 ## Creating a plugin
 
 Q plugins are simply executables. They may be written in any language that can
-read from stdin and write to stdout.  They must respond to the following command
-line commands:
+read from stdin and write to stdout and expose/consume JSON-RPC.  They must
+respond to the following command line commands:
 
 ### manifest
 
