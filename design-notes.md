@@ -96,7 +96,13 @@ their associated contexts, and any named services.
 This is the specification for what is expected to be in a Q plugin manifest.
 These are the Go structs that would be used to generate the manifest.
 
-A note on Versions... versions are expected to match the following regular expression `[0-9].[0-9]+(.[0-9]+)?( [a-z]+)?`  i.e. major.minor[.patch] [tag]  Where tag is something like "alpha" or "rc1".  When versions are compared, they are compared by major, then minor, then patch.  An empty tag is considered higher than a non-empty tag.  Otherwise, tags are compared lexigraphically, so rc1 > beta > alpha.  Note that this means you have to be careful with tags, since beta2 > beta10.  
+A note on Versions... versions are expected to match the following regular
+expression `[0-9].[0-9]+(.[0-9]+)?( [a-z]+)?`  i.e. major.minor[.patch] [tag]
+Where tag is something like "alpha" or "rc1".  When versions are compared, they
+are compared by major, then minor, then patch (a missing patch is the same as
+patch level 0).  An empty tag is considered higher than a non-empty tag.
+Otherwise, tags are compared lexigraphically, so rc1 > beta > alpha.  Note that
+this means you have to be careful with tags, since beta2 > beta10.
 
 	type Manifest struct {
 		Name string 		// plugin name
@@ -161,8 +167,3 @@ I want to tell Q about a bug that I am going to start working on.
 
 q take [bug url] [vcs dir]
 
-**implications:**
-
-Need a string resolvers that can translate custom uri types to full strings, i.e. translate lp:1424892 to https://bugs.launchpad.net/juju-core/+bug/1424892 or translate gh:juju/juju to $GOPATH/src/github.com/juju/juju
-
-Need plugins to handle vcs, bug trackers, kanban.
