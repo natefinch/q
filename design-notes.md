@@ -43,44 +43,72 @@ When given the manifest command, the plugin must write its TOML manifest to
 stdout.  The manifest tells Q what features the plugin exposes - commands and
 their associated contexts, and any named services.
 
-```toml
-	name = "launchpad"
-	# commands at the root are commands that do not take a context
-    [[command]]
-    	name = "dance"
-    	short = "makes a dancing banana appear"
-    	long = """
-usage:
-	dance [options]
+```
+# the name of the plugin
+name = "github"
+# commands at the root are commands that do not take a context
+[[command]]
+	# the name of the command
+	name = "dance"
+	# short is a single line help shown with a list of commands
+	short = "makes a dancing banana appear"
+	# long is what is shown when the user does q help <command>
+	long = """
+	usage:
+		dance [options]
 
-	-t=<seconds> 	display for n seconds
-"""
-    [[context]]
-        name = "bug"
-        plural = "bugs"
-    	[[context.command]]
-    		name = "list"
-    		short = "show all bugs"
-    		long = """
-usage:
-	list bugs [options]
+		-t=<seconds> 	display for n seconds
+	"""
+[[context]]
+	# the name of the context
+    name = "bug"
+    # the plural version of the context name
+    plural = "bugs"
+    long = "These commands interact with bugs from github."
 
-	-a=<assignee> 	show only bugs assigned to assignee
-"""
+    # contexts can register commands as well, these will be accessed by
+    # q <command> <context>
+	[[context.command]]
+		name = "list"
+		short = "show all bugs"
+		long = """
+		usage:
+			list bugs [options]
 
-    	[[context.command]]
-    		name = "add"
-    		short = "create a new bugs"
-    		long = """
-usage:
-	add bug [options]
+			-a=<assignee> 	show only bugs assigned to assignee
+		"""
 
-	-t=<title> 	use the given string as the title of the bug
-	-b=<body> 	use the given string as the body of the bug
-"""
+	[[context.command]]
+		name = "add"
+		short = "create a new bug"
+		long = """
+		usage:
+			add bug [options]
+
+			-t=<title> 	use the given string as the title of the bug
+			-b=<body> 	use the given string as the body of the bug
+		"""
 
 
 ```
+
+### server
+
+When given the server command, the plugin should start its JSON-RPC server
+listening on stdin and writing responses to stdout.  Any logging the plugin
+wishes to do should be sent through stderr.  The plugin should interpret the
+Interrupt signal as a request for it to shut down its process.
+
+### command
+
+When given the command command, any further command line args given by the user
+will be passed through to the plugin.  At this point, Q will start a JSON-RPC
+server over the plugin's stdin and stdout, and will relay any RPC requests to
+the appropriate plugin servers.  
+
+## Installing plugins
+
+
 
 
 
