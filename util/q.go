@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
+	"time"
 )
 
 var (
@@ -19,23 +19,8 @@ var (
 	}
 )
 
-// ConfigDir reports the directory where Q should store its data.  The default
-// is $HOME/.config/Q/ on *nixes and %LOCALAPPDATA%\Q\ on Windows.  The default
-// may be overridden using the QPATH environment variable.
-func ConfigDir() string {
-	if dir := os.Getenv("QPATH"); dir != "" {
-		return dir
-	}
-
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("LOCALAPPDATA"), "Q")
-	} else {
-		return filepath.Join(os.Getenv("HOME"), ".config", "Q")
-	}
-}
-
 // AtomicWriteFile atomically writes the given file with the given contents.
-func AtomicWriteFile(filename string, r ioReader) (err error) {
+func AtomicWriteFile(filename string, r io.Reader) (err error) {
 	dir, file := filepath.Split(filename)
 	f, err := ioutil.TempFile(dir, file)
 	if err != nil {

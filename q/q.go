@@ -3,10 +3,44 @@ package q
 import (
 	"fmt"
 	"os"
-	"strings"
+	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+// ConfigDir reports the directory where Q should store its data.  The default
+// is $HOME/.config/Q/ on *nixes and %LOCALAPPDATA%\Q\ on Windows.  The default
+// may be overridden using the Q_CONFIG_DIR environment variable.
+func ConfigDir() string {
+	if dir := os.Getenv("Q_CONFIG_DIR"); dir != "" {
+		return dir
+	}
+
+	if runtime.GOOS == "windows" {
+		return filepath.Join(os.Getenv("LOCALAPPDATA"), "Q")
+	} else {
+		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+			filepath.Join(xdg, "Q")
+		}
+		return filepath.Join(os.Getenv("HOME"), ".config", "Q")
+	}
+}
+
+func configFile() string {
+	return filepath.Join(ConfigDir(), "config.toml")
+}
+
+func ReadConfig() (*viper.Viper, error) {
+	v := viper.New()
+	v.SetConfigFile(configFile())
+	v.SetEnvPrefix("Q")
+	if err := v.ReadInConfig(); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
 
 var baseCmd = &cobra.Command{
 	Short: "q is a do-everything CLI tool for busy people",
@@ -35,7 +69,7 @@ func Add(cmd Command) error {
 	}
 	if command == nil {
 		command = &cobra.Command{
-			Short: cmd + " <context>",
+			Short: cmd.Name + " <context>",
 			Long:  fmt.Sprintf("%s something. Type q help %s for more details.", cmd, cmd),
 		}
 		baseCmd.AddCommand(command)
@@ -61,4 +95,5 @@ func Add(cmd Command) error {
 	}
 
 	command.AddCommand(ctxCmd)
+	return nil
 }
