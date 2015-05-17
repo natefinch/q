@@ -6,14 +6,22 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+
+	"npf.io/q/q/log"
 )
 
 // ConfigDir reports the directory where Q should store its data.  The default
 // is $HOME/.config/Q/ on *nixes and %LOCALAPPDATA%\Q\ on Windows.  The default
 // may be overridden using the Q_CONFIG_DIR environment variable.
-func ConfigDir() string {
+var ConfigDir = getConfigDir()
+
+var (
+	configFile = filepath.Join(ConfigDir, "q-config.toml")
+)
+
+func getConfigDir() string {
 	if dir := os.Getenv("Q_CONFIG_DIR"); dir != "" {
 		return dir
 	}
@@ -28,18 +36,27 @@ func ConfigDir() string {
 	}
 }
 
-func configFile() string {
-	return filepath.Join(ConfigDir(), "config.toml")
+type Config struct {
+	PluginDir string
 }
 
-func ReadConfig() (*viper.Viper, error) {
-	v := viper.New()
-	v.SetConfigFile(configFile())
-	v.SetEnvPrefix("Q")
-	if err := v.ReadInConfig(); err != nil {
-		return nil, err
+func ReadConfig() (Config, error) {
+	// init with defaults
+	c := defaultConfig()
+	meta, err := toml.DecodeFile(configFile, &c)
+	if err != nil {
+		return c, fmt.Errorf("failed to read config file %q: %v", configFile, err)
 	}
-	return v, nil
+	if len(meta.Undecoded()) > 0 {
+		log.Verbose("Unexpected options in Q config file: %v", meta.Undecoded())
+	}
+	return c, nil
+}
+
+func defaultConfig() Config {
+	return Config{
+		PluginDir: filepath.Join(ConfigDir, "plugins"),
+	}
 }
 
 var baseCmd = &cobra.Command{

@@ -6,11 +6,11 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/BurntSushi/toml"
+
 	"npf.io/q/q/log"
 )
 
@@ -45,7 +45,7 @@ type Service struct {
 func LoadManifests(dir string) ([]*Manifest, []error) {
 	names, err := filepath.Glob(filepath.Join(dir, "*.toml"))
 	if err != nil {
-		return nil, fmt.Errorf("error reading manifests from plugin directory: %v", err)
+		return nil, []error{fmt.Errorf("error reading manifests from plugin directory: %v", err)}
 	}
 
 	// Map of manifest file name to plugin file name.
@@ -59,7 +59,7 @@ func LoadManifests(dir string) ([]*Manifest, []error) {
 
 	fs, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, fmt.Errorf("can't read plugin directory: %v", err)
+		return nil, []error{fmt.Errorf("can't read plugin directory: %v", err)}
 	}
 
 	wg := &sync.WaitGroup{}
@@ -67,14 +67,14 @@ func LoadManifests(dir string) ([]*Manifest, []error) {
 
 	for _, f := range fs {
 		name := f.Name()
-		if _, ok := mfests[name]; ok {
+		if _, ok := files[name]; ok {
 			// manifest file
 			continue
 		}
 		// not a manifest, should be a plugin, check for corresponding
 		// manifest
-		manifest = manifestForPlugin(name)
-		if _, ok := mfests[manifest]; ok {
+		manifest := manifestForPlugin(name)
+		if _, ok := files[manifest]; ok {
 			// now that we know both exist, we can parse the manifest
 			wg.Add(1)
 			go readManifest(name, manifest, wg, results)
@@ -85,15 +85,15 @@ func LoadManifests(dir string) ([]*Manifest, []error) {
 		go getManifest(name, wg, results)
 	}
 
-	collres := make(chan []collateResult)
+	collres := make(chan collateResult)
 
-	go collate(mfests, results, collres)
+	go collate(files, results, collres)
 
 	wg.Wait()
 	close(results)
 	result := <-collres
 
-	for manifest, plugin := range mfests {
+	for manifest, plugin := range files {
 		if plugin == "" {
 			log.Verbose("Orphaned manifest found without plugin: %v", manifest)
 		}
@@ -121,7 +121,7 @@ func getManifest(plugin string, wg *sync.WaitGroup, result chan<- manifestResult
 	out := &bytes.Buffer{}
 	cmd.Stdout = out
 	if err := cmd.Start(); err != nil {
-		result <- manifestResult{err: fmt.Errorf("couldn't run plugin %q: %v", f.Name(), err)}
+		result <- manifestResult{err: fmt.Errorf("couldn't run plugin %q: %v", plugin, err)}
 		return
 	}
 	done := make(chan error)
@@ -129,7 +129,7 @@ func getManifest(plugin string, wg *sync.WaitGroup, result chan<- manifestResult
 	select {
 	case err := <-done:
 		if err != nil {
-			result <- manifestResult{err: fmt.Errorf("error running plugin %q: %v", f.Name(), err)}
+			result <- manifestResult{err: fmt.Errorf("error running plugin %q: %v", plugin, err)}
 			return
 		}
 	case <-time.After(time.Millisecond * 500):
@@ -144,9 +144,12 @@ func getManifest(plugin string, wg *sync.WaitGroup, result chan<- manifestResult
 		result <- manifestResult{err: fmt.Errorf("failed to decode manifest from %q: %v", plugin, err)}
 		return
 	}
-
-	if err := ioutil.WriteFile(manifestForPlugin(plugin), out.Bytes(), 0644); err != nil {
-		result <- manifestResult{err: fmt.Errorf("couldn't write manifest %q: %v", name+".toml", err)}
+	if len(meta.Undecoded()) > 0 {
+		log.Verbose("Unexpected options in manifest for %q: %v", plugin, meta.Undecoded())
+	}
+	manifest := manifestForPlugin(plugin)
+	if err := ioutil.WriteFile(manifest, out.Bytes(), 0644); err != nil {
+		result <- manifestResult{err: fmt.Errorf("couldn't write manifest %q: %v", manifest, err)}
 	}
 	result <- manifestResult{mfest: &mfest}
 }
@@ -154,8 +157,8 @@ func getManifest(plugin string, wg *sync.WaitGroup, result chan<- manifestResult
 func readManifest(plugin, manifest string, wg *sync.WaitGroup, results chan<- manifestResult) {
 	defer wg.Done()
 
-	m := Manifest{PluginPath: plugin}
-	meta, err := toml.DecodeFile(manifest, &m)
+	m := &Manifest{PluginPath: plugin}
+	meta, err := toml.DecodeFile(manifest, m)
 	if err != nil {
 		results <- manifestResult{err: fmt.Errorf("failed to decode manifest from %q: %v", manifest, err)}
 		return
@@ -166,15 +169,15 @@ func readManifest(plugin, manifest string, wg *sync.WaitGroup, results chan<- ma
 	results <- manifestResult{mfest: m}
 }
 
-func collate(mfests map[string]string, results <-chan manifestResult, collres chan<- collateResult) {
-	res := collateResult{}
+func collate(mfests map[string]string, results <-chan manifestResult, resChan chan<- collateResult) {
+	result := collateResult{}
 	for r := range results {
 		if r.err != nil {
-			res.errs = append(res.errs, err)
+			result.errs = append(result.errs, r.err)
 			continue
 		}
 		mfests[manifestForPlugin(r.mfest.PluginPath)] = r.mfest.PluginPath
-		res.mfests = append(res.mfests, r.mfest)
+		result.mfests = append(result.mfests, r.mfest)
 	}
-	errchan <- res
+	resChan <- result
 }
